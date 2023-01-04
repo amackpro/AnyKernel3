@@ -10,9 +10,9 @@ do.modules=0
 do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
-device.name1=alioth
-device.name2=aliothin
-device.name3=aliothg
+device.name1=vayu
+device.name2=bhima
+device.name3=
 device.name4=
 device.name5=
 supported.versions=11 - 13
@@ -41,18 +41,4 @@ dump_boot; # use split_boot to skip ramdisk unpack, e.g. for devices with init_b
 
 write_boot;
 
-## vendor_boot shell variables
-block=/dev/block/bootdevice/by-name/vendor_boot;
-is_slot_device=auto;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-# reset for vendor_boot patching
-reset_ak;
-
-# vendor_boot install
-dump_boot;
-
-write_boot;
-## end vendor_boot install
 
