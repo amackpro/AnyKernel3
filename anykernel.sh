@@ -190,35 +190,38 @@ flash_generic vendor_dlkm
 reset_ak;
 echo "DEBUG: After reset_ak"
 
+
+ui_print "- Dumping vendor_boot partition..."
+vendor_boot_img=$home/vendor_boot.img
+dd if=/dev/block/bootdevice/by-name/vendor_boot$slot of=$vendor_boot_img
+
+ui_print "- Extracting vendor_boot ramdisk..."
+extract_vendor_boot_ramdisk $vendor_boot_img $home/vendor_boot_extract
+
+ui_print "- Replacing DTB in vendor_boot..."
 unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
-
 if [ -f "$home/dtb" ]; then
-  ui_print "- Dumping vendor_boot partition..."
-  vendor_boot_img=$home/vendor_boot.img
-  dd if=/dev/block/bootdevice/by-name/vendor_boot$slot of=$vendor_boot_img
-
-  ui_print "- Extracting vendor_boot ramdisk..."
-  extract_vendor_boot_ramdisk $vendor_boot_img $home/vendor_boot_extract
-
-  ui_print "- Replacing DTB in vendor_boot..."
   cp -f "$home/dtb" "$home/vendor_boot_extract/dtb"
-
-  ui_print "- Repacking vendor_boot ramdisk..."
-  cd $home/vendor_boot_extract/ramdisk
-  find . | cpio -H newc -o > ../ramdisk-new.cpio
-  cd $home/vendor_boot_extract
-
-  ${bin}/magiskboot compress=lz4_legacy ramdisk-new.cpio ramdisk.cpio
-  rm -f ramdisk-new.cpio
-
-  ${bin}/magiskboot repack $vendor_boot_img $home/vendor_boot_new.img 2>&1 || \
-    ui_print "! Failed to repack vendor_boot"
-
-  rm -rf $home/vendor_boot_extract $vendor_boot_img $home/dtb
-
-  mv $home/vendor_boot_new.img $home/vendor_boot.img
-
-  flash_generic vendor_boot;
+fi
+unzip -o "$ZIPFILE" vendor_boot_modules -d "$home" >/dev/null 2>&1
+if [ -d "$home/vendor_boot_modules" ]; then
+	cp -f $home/vendor_boot_modules/*.ko $home/vendor_boot_extract/ramdisk/lib/modules/
 fi
 
+ui_print "- Repacking vendor_boot ramdisk..."
+cd $home/vendor_boot_extract/ramdisk
+find . | cpio -H newc -o > ../ramdisk-new.cpio
+cd $home/vendor_boot_extract
+
+${bin}/magiskboot compress=lz4_legacy ramdisk-new.cpio ramdisk.cpio
+rm -f ramdisk-new.cpio
+
+${bin}/magiskboot repack $vendor_boot_img $home/vendor_boot_new.img 2>&1 || \
+  ui_print "! Failed to repack vendor_boot"
+
+rm -rf $home/vendor_boot_extract $vendor_boot_img $home/dtb
+mv $home/vendor_boot_new.img $home/vendor_boot.img
+flash_generic vendor_boot;
+
 flash_dtbo
+flash_boot
