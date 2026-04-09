@@ -25,6 +25,13 @@ is_slot_device=auto
 ramdisk_compression=auto
 patch_vbmeta_flag=auto
 
+# Workaround for missing 'rev' command on some recoveries
+if ! command -v rev &>/dev/null; then
+  rev() {
+    awk '{ for(i=length($0);i>=1;i--)printf "%s",substr($0,i,1);print "" }' "$@"
+  }
+fi
+
 # import functions/variables and setup patching - see for reference (DO NOT REMOVE)
 . tools/ak3-core.sh
 
@@ -42,6 +49,29 @@ extract_erofs() {
 	local out_dir=$2
 
 	${bin}/extract.erofs -i $img_file -x -T8 -o $out_dir &> /dev/null
+}
+
+extract_vendor_boot_ramdisk() {
+	local vendor_boot_img=$1
+	local out_dir=$2
+
+	mkdir -p $out_dir
+	cd $out_dir
+	${bin}/magiskboot unpack -h $vendor_boot_img &>/dev/null
+	if [ -f ramdisk.cpio ]; then
+		local comp=$(${bin}/magiskboot decompress ramdisk.cpio 2>&1 | grep -v 'raw' | sed -n 's;.*\[\(.*\)\];\1;p')
+		if [ "$comp" ]; then
+			mv -f ramdisk.cpio ramdisk.cpio.$comp
+			${bin}/magiskboot decompress ramdisk.cpio.$comp ramdisk.cpio
+		fi
+		mkdir -p ramdisk
+		cd ramdisk
+		EXTRACT_UNSAFE_SYMLINKS=1 cpio -d -i < ../ramdisk.cpio
+		cd ..
+	else
+		abort "! No ramdisk found in vendor_boot"
+	fi
+	cd $home
 }
 
 mkfs_erofs() {
@@ -114,26 +144,6 @@ $BOOTMODE || setenforce 0
 
 dd if=/dev/block/mapper/vendor_dlkm${slot} of=${home}/vendor_dlkm.img
 ui_print "- It looks like you are installing Minazuki Kernel for the first time."
-ui_print "- Next will backup the kernel and vendor_dlkm partitions..."
-build_prop=/system/build.prop
-[ -d /system_root/system ] && build_prop=/system_root/$build_prop
-backup_package=/sdcard/Minazuki-restore-kernel-$(file_getprop $build_prop ro.build.version.incremental)-$(date +"%Y%m%d-%H%M%S").zip
-${bin}/7za a -tzip -bd $backup_package \
-	${home}/META-INF ${bin} ${home}/LICENSE ${home}/_restore_anykernel.sh ${split_img}/kernel ${home}/vendor_dlkm.img
-${bin}/7za rn -bd $backup_package Image.gz
-${bin}/7za rn -bd $backup_package _restore_anykernel.sh anykernel.sh
-sync
-
-ui_print " "
-ui_print "- The current kernel and gevendor_dlkm have been backedup to:"
-ui_print "  $backup_package"
-ui_print "- If you encounter an unexpected situation,"
-ui_print "  or want to restore the stock kernel,"
-ui_print "  please flash it in TWRP or some supported apps."
-ui_print " "
-touch ${home}/do_backup_flag
-
-unset build_prop backup_package
 
 ui_print "- Unpacking /vendor_dlkm partition..."
 extract_vendor_dlkm_dir=${home}/_extract_vendor_dlkm
@@ -177,28 +187,38 @@ unset skip_update_flag do_backup_flag
 # Flash updated /vendor_dlkm image
 flash_generic vendor_dlkm
 
-# Flash kernel to boot
-flash_boot
+reset_ak;
+echo "DEBUG: After reset_ak"
 
-# Flash DTB to vendor_boot (only if dtb is present)
 unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
+
 if [ -f "$home/dtb" ]; then
-  ui_print "- Found dtb blob, flashing to vendor_boot..."
+  ui_print "- Dumping vendor_boot partition..."
+  vendor_boot_img=$home/vendor_boot.img
+  dd if=/dev/block/bootdevice/by-name/vendor_boot$slot of=$vendor_boot_img
 
-  block=/dev/block/bootdevice/by-name/vendor_boot;
-  is_slot_device=auto;
-  ramdisk_compression=auto;
-  patch_vbmeta_flag=auto;
+  ui_print "- Extracting vendor_boot ramdisk..."
+  extract_vendor_boot_ramdisk $vendor_boot_img $home/vendor_boot_extract
 
-  reset_ak;
-  dump_boot;
+  ui_print "- Replacing DTB in vendor_boot..."
+  cp -f "$home/dtb" "$home/vendor_boot_extract/dtb"
 
-  # Replace existing DTB
-  cp -f "$home/dtb" "$split_img/dtb"
+  ui_print "- Repacking vendor_boot ramdisk..."
+  cd $home/vendor_boot_extract/ramdisk
+  find . | cpio -H newc -o > ../ramdisk-new.cpio
+  cd $home/vendor_boot_extract
 
-  write_boot;
-else
-  ui_print "! dtb blob not found, skipping vendor_boot flash"
+  ${bin}/magiskboot compress=lz4_legacy ramdisk-new.cpio ramdisk.cpio
+  rm -f ramdisk-new.cpio
+
+  ${bin}/magiskboot repack $vendor_boot_img $home/vendor_boot_new.img 2>&1 || \
+    ui_print "! Failed to repack vendor_boot"
+
+  rm -rf $home/vendor_boot_extract $vendor_boot_img $home/dtb
+
+  mv $home/vendor_boot_new.img $home/vendor_boot.img
+
+  flash_generic vendor_boot;
 fi
 
 flash_dtbo
