@@ -113,11 +113,11 @@ umount /vendor_dlkm
 $BOOTMODE || setenforce 0
 
 dd if=/dev/block/mapper/vendor_dlkm${slot} of=${home}/vendor_dlkm.img
-ui_print "- It looks like you are installing Realking Kernel for the first time."
+ui_print "- It looks like you are installing Minazuki Kernel for the first time."
 ui_print "- Next will backup the kernel and vendor_dlkm partitions..."
 build_prop=/system/build.prop
 [ -d /system_root/system ] && build_prop=/system_root/$build_prop
-backup_package=/sdcard/Realking-restore-kernel-$(file_getprop $build_prop ro.build.version.incremental)-$(date +"%Y%m%d-%H%M%S").zip
+backup_package=/sdcard/Minazuki-restore-kernel-$(file_getprop $build_prop ro.build.version.incremental)-$(date +"%Y%m%d-%H%M%S").zip
 ${bin}/7za a -tzip -bd $backup_package \
 	${home}/META-INF ${bin} ${home}/LICENSE ${home}/_restore_anykernel.sh ${split_img}/kernel ${home}/vendor_dlkm.img
 ${bin}/7za rn -bd $backup_package Image.gz
@@ -155,14 +155,6 @@ cat ${extract_vendor_dlkm_dir}/config/vendor_dlkm_file_contexts | grep -q 'lib/m
 
 ui_print "- Repacking /vendor_dlkm image..."
 rm -f ${home}/vendor_dlkm.img
-
-[[ -f ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/qca_cld3_kiwi_v2.ko ]] \
-	&& echo "Renaming wlan drivers to qca_cld3_kiwi_v2" \
-	&& mv ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/wlan.ko ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/qca_cld3_kiwi_v2.ko 
-
-[[ -f ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/qca_cld3_qca6750.ko ]] \
-	&& echo "Renaming wlan drivers to qca_cld3_qca6750" \
-	&& mv ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/wlan.ko ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/qca_cld3_qca6750.ko
 
 [[ -f ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/goodix_ts.ko ]] \
 	&& echo "Renaming goodix drivers to goodix_ts" \
