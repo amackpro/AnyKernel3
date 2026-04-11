@@ -153,7 +153,26 @@ sync
 extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules
 
 ui_print "- Updating /vendor_dlkm image..."
-cp -f ${home}/_modules/*.ko ${extract_vendor_dlkm_modules_dir}/
+for module in $(ls ${home}/_modules/)
+do
+	if [[ -f ${extract_vendor_dlkm_modules_dir}/${module} ]]; then
+		ui_print "replacing $module"
+		cp -f ${home}/_modules/${module} ${extract_vendor_dlkm_modules_dir}/
+	else
+		if [[ $module == "goodix_core.ko" ]]; then
+			if [[ -f ${extract_vendor_dlkm_modules_dir}/goodix_ts.ko ]]; then
+				ui_print "replacing goodix_ts.ko"
+				cp -f ${home}/_modules/${module} ${extract_vendor_dlkm_modules_dir}/goodix_ts.ko
+			fi
+		elif [[ $module == "focaltech_touch.ko" ]]; then
+			if [[ -f ${extract_vendor_dlkm_modules_dir}/focaltech_3683g.ko ]]; then
+				ui_print "replacing focaltech_3683g.ko"
+				cp -f ${home}/_modules/${module} ${extract_vendor_dlkm_modules_dir}/focaltech_3683g.ko
+			fi
+		fi
+	fi
+done
+
 cp -f ${home}/vertmp ${extract_vendor_dlkm_modules_dir}/vertmp
 sync
 
@@ -165,14 +184,6 @@ cat ${extract_vendor_dlkm_dir}/config/vendor_dlkm_file_contexts | grep -q 'lib/m
 
 ui_print "- Repacking /vendor_dlkm image..."
 rm -f ${home}/vendor_dlkm.img
-
-[[ -f ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/goodix_ts.ko ]] \
-	&& echo "Renaming goodix drivers to goodix_ts" \
-	&& mv ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/goodix_core.ko ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/goodix_ts.ko
-
-[[ -f ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/focaltech_3683g.ko ]] \
-	&& echo "Renaming focaltech drivers to focaltech_3683g" \
-	&& mv ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/focaltech_touch.ko ${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules/focaltech_3683g.ko
 
 mkfs_erofs ${extract_vendor_dlkm_dir}/vendor_dlkm ${home}/vendor_dlkm.img || \
 	abort "! Failed to repack the vendor_dlkm image!"
@@ -203,9 +214,28 @@ unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
 if [ -f "$home/dtb" ]; then
   cp -f "$home/dtb" "$home/vendor_boot_extract/dtb"
 fi
-unzip -o "$ZIPFILE" vendor_boot_modules -d "$home" >/dev/null 2>&1
-if [ -d "$home/vendor_boot_modules" ]; then
-	cp -f $home/vendor_boot_modules/*.ko $home/vendor_boot_extract/ramdisk/lib/modules/
+
+if [ -d "$home/_modules" ]; then
+	module_path="$home/vendor_boot_extract/ramdisk/lib/modules/"
+	for module in $(ls ${home}/_modules/)
+	do
+		if [[ -f ${module_path}/${module} ]]; then
+			ui_print "replacing $module"
+			cp -f ${home}/_modules/${module} ${module_path}/
+		else
+			if [[ $module == "goodix_core.ko" ]]; then
+				if [[ -f ${module_path}/goodix_ts.ko ]]; then
+					ui_print "replacing goodix_ts.ko"
+					cp -f ${home}/_modules/${module} ${module_path}/goodix_ts.ko
+				fi
+			elif [[ $module == "focaltech_touch.ko" ]]; then
+				if [[ -f ${module_path}/focaltech_3683g.ko ]]; then
+					ui_print "replacing focaltech_3683g.ko"
+					cp -f ${home}/_modules/${module} ${module_path}/focaltech_3683g.ko
+				fi
+			fi
+		fi
+	done
 fi
 
 ui_print "- Repacking vendor_boot ramdisk..."
