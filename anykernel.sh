@@ -215,28 +215,28 @@ if [ -f "$home/dtb" ]; then
   cp -f "$home/dtb" "$home/vendor_boot_extract/dtb"
 fi
 
-if [ -d "$home/_modules" ]; then
-	module_path="$home/vendor_boot_extract/ramdisk/lib/modules/"
-	for module in $(ls ${home}/_modules/)
-	do
-		if [[ -f ${module_path}/${module} ]]; then
-			ui_print "replacing $module"
-			cp -f ${home}/_modules/${module} ${module_path}/
-		else
-			if [[ $module == "goodix_core.ko" ]]; then
-				if [[ -f ${module_path}/goodix_ts.ko ]]; then
-					ui_print "replacing goodix_ts.ko"
-					cp -f ${home}/_modules/${module} ${module_path}/goodix_ts.ko
-				fi
-			elif [[ $module == "focaltech_touch.ko" ]]; then
-				if [[ -f ${module_path}/focaltech_3683g.ko ]]; then
-					ui_print "replacing focaltech_3683g.ko"
-					cp -f ${home}/_modules/${module} ${module_path}/focaltech_3683g.ko
-				fi
-			fi
-		fi
-	done
-fi
+# if [ -d "$home/_modules" ]; then
+	# module_path="$home/vendor_boot_extract/ramdisk/lib/modules/"
+	# for module in $(ls ${home}/_modules/)
+	# do
+		# if [[ -f ${module_path}/${module} ]]; then
+			# ui_print "replacing $module"
+			# cp -f ${home}/_modules/${module} ${module_path}/
+		# else
+			# if [[ $module == "goodix_core.ko" ]]; then
+				# if [[ -f ${module_path}/goodix_ts.ko ]]; then
+					# ui_print "replacing goodix_ts.ko"
+					# cp -f ${home}/_modules/${module} ${module_path}/goodix_ts.ko
+				# fi
+			# elif [[ $module == "focaltech_touch.ko" ]]; then
+				# if [[ -f ${module_path}/focaltech_3683g.ko ]]; then
+					# ui_print "replacing focaltech_3683g.ko"
+					# cp -f ${home}/_modules/${module} ${module_path}/focaltech_3683g.ko
+				# fi
+			# fi
+		# fi
+	# done
+# fi
 
 ui_print "- Repacking vendor_boot ramdisk..."
 cd $home/vendor_boot_extract/ramdisk
