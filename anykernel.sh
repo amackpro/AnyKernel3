@@ -126,6 +126,7 @@ unset rc snapshot_status
 [ -d /vendor_dlkm ] || mkdir /vendor_dlkm
 is_mounted /vendor_dlkm || \
 	mount /vendor_dlkm -o ro || mount /dev/block/mapper/vendor_dlkm${slot} /vendor_dlkm -o ro || \
+	mount /dev/block/mapper/vendor_dlkm-verity /vendor_dlkm -o ro || \
 		abort "! Failed to mount /vendor_dlkm"
 
 strings ${home}/Image 2>/dev/null | grep -E -m1 'Linux version.*#' > ${home}/vertmp
